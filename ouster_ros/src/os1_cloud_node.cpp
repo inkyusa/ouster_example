@@ -65,26 +65,31 @@ int main(int argc, char** argv) {
             cloud, std::chrono::nanoseconds{scan_ts}, lidar_frame);
         lidar_pub.publish(msg);
 
+        #if 1
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloudPtr(
             new pcl::PointCloud<pcl::PointXYZ>);
         pcl::fromROSMsg(msg, *cloudPtr);
-        //cout << "msg.data.size=" << msg.data.size() << endl;
-
-        // Convert to PCL data type
-        // pcl_conversions::toPCL(msg, *temp_cloud);
-        //cout << "cloudPtr.size=" << cloudPtr->size() << endl;
         pcl::FrustumCulling<pcl::PointXYZ> fc;
         fc.setInputCloud(cloudPtr);
-        fc.setVerticalFOV(90);
-        fc.setHorizontalFOV(179);
-        fc.setNearPlaneDistance(1.0);
-        fc.setFarPlaneDistance(200);
+        fc.setVerticalFOV(120);
+        fc.setHorizontalFOV(120);
+        fc.setNearPlaneDistance(0.01);
+        fc.setFarPlaneDistance(100);
         Eigen::Matrix4f init_pose = Eigen::Matrix4f::Identity();
-        Eigen::Matrix4f init2lidar; // this thing assusms pose x-forward, y-up, z right. WTF.. anyway, rotate -90 along x-axis.
-        init2lidar << 1, 0, 0, 0,
-               0, 0, 1, 0,
+        Eigen::Matrix4f init2lidar,cam2lidar; // this thing assusms pose x-forward, y-up, z right. rotate -90 along x-axis to align with x-forward, y-left, z-up.
+        // init2lidar << 1, 0, 0, 0,
+        //        0, 0, 1, 0,
+        //        0, -1, 0, 0,
+        //        0, 0, 0, 1;
+        //not perfectly work
+        init2lidar << -1, 0, 0, 0,
                0, -1, 0, 0,
+               0, 0, 1, 0,
                0, 0, 0, 1;
+        // init2lidar <<  1, 0, 0, 0,
+        //                0, 0, -1, 0,
+        //                0, 1, 0, 0,
+        //                0, 0, 0, 1;
         Eigen::Matrix4f pose_new = init_pose*init2lidar;
 
         fc.setCameraPose(pose_new);
@@ -96,9 +101,11 @@ int main(int argc, char** argv) {
         msg2.header.frame_id = msg.header.frame_id;
         msg2.header = msg.header;
         lidar_pub2.publish(msg2);
+        #endif
+
 
       });
-  
+
   auto lidar_handler = [&](const PacketMsg& pm) mutable {
     batch_and_publish(pm.buf.data(), it);
   };
